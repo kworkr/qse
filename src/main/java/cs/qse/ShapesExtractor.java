@@ -22,7 +22,6 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.semanticweb.yars.nx.Node;
 
 import java.io.FileWriter;
 import java.nio.file.Path;
@@ -38,7 +37,7 @@ public class ShapesExtractor {
     HashMap<Tuple3<Integer, Integer, Integer>, SC> shapeTripletSupport;
     HashMap<Integer, Integer> classInstanceCount;
     ValueFactory factory = SimpleValueFactory.getInstance();
-    String logfileAddress = ConfigManager.getProperty("output_file_path") + ConfigManager.getProperty("dataset_name") + ".csv";
+    String logfileAddress = Constants.EXPERIMENTS_RESULT;
     
     public ShapesExtractor(Encoder encoder, HashMap<Tuple3<Integer, Integer, Integer>, SC> shapeTripletSupport, HashMap<Integer, Integer> classInstanceCount) {
         this.encoder = encoder;
@@ -84,7 +83,6 @@ public class ShapesExtractor {
         FilesUtil.writeToFileInAppendMode(log.toString(), logfileAddress);
         this.writeModelToFile("CUSTOM_" + confidence + "_" + support);
     }
-    
     private Model constructShapeWithoutPruning(HashMap<Integer, HashMap<Integer, HashSet<Integer>>> classToPropWithObjTypes) {
         Model m = null;
         ModelBuilder b = new ModelBuilder();
@@ -111,18 +109,21 @@ public class ShapesExtractor {
         ModelBuilder b = new ModelBuilder();
         classToPropWithObjTypes.forEach((classEncodedLabel, propToObjectType) -> {
             IRI subj = factory.createIRI(encoder.decode(classEncodedLabel));
-            
-            String nodeShape = "shape:" + subj.getLocalName() + "Shape";
-            b.subject(nodeShape)
-                    .add(RDF.TYPE, SHACL.NODE_SHAPE)
-                    .add(SHACL.TARGET_CLASS, subj)
-                    .add(SHACL.IGNORED_PROPERTIES, RDF.TYPE)
-                    .add(SHACL.CLOSED, false);
-            
-            if (propToObjectType != null) {
-                HashMap<Integer, HashSet<Integer>> propToObjectTypesLocal = performPruning(classEncodedLabel, propToObjectType, confidence, support);
-                constructNodePropertyShapes(b, subj, nodeShape, propToObjectTypesLocal);
+            //NODE SHAPES PRUNING
+            if (classInstanceCount.get(encoder.encode(subj.stringValue())) > support) {
+                String nodeShape = "shape:" + subj.getLocalName() + "Shape";
+                b.subject(nodeShape)
+                        .add(RDF.TYPE, SHACL.NODE_SHAPE)
+                        .add(SHACL.TARGET_CLASS, subj)
+                        .add(SHACL.IGNORED_PROPERTIES, RDF.TYPE)
+                        .add(SHACL.CLOSED, false);
+                
+                if (propToObjectType != null) {
+                    HashMap<Integer, HashSet<Integer>> propToObjectTypesLocal = performNodeShapePropPruning(classEncodedLabel, propToObjectType, confidence, support);
+                    constructNodePropertyShapes(b, subj, nodeShape, propToObjectTypesLocal);
+                }
             }
+            
         });
         m = b.build();
         return m;
@@ -140,9 +141,12 @@ public class ShapesExtractor {
             
             propObjectTypes.forEach(encodedObjectType -> {
                 Tuple3<Integer, Integer, Integer> tuple3 = new Tuple3<>(encoder.encode(subj.stringValue()), prop, encodedObjectType);
-                if (shapeTripletSupport.get(tuple3).getSupport().equals(classInstanceCount.get(encoder.encode(subj.stringValue())))) {
-                    b.subject(propShape).add(SHACL.MIN_COUNT, 1);
+                if(shapeTripletSupport.containsKey(tuple3)){
+                    if (shapeTripletSupport.get(tuple3).getSupport().equals(classInstanceCount.get(encoder.encode(subj.stringValue())))) {
+                        b.subject(propShape).add(SHACL.MIN_COUNT, 1);
+                    }
                 }
+               
                 String objectType = encoder.decode(encodedObjectType);
                 if (objectType != null) {
                     if (objectType.contains(XSD.NAMESPACE) || objectType.contains(RDF.LANGSTRING.toString())) {
@@ -164,7 +168,7 @@ public class ShapesExtractor {
         });
     }
     
-    private HashMap<Integer, HashSet<Integer>> performPruning(Integer classEncodedLabel, HashMap<Integer, HashSet<Integer>> propToObjectType, Double confidence, Integer support) {
+    private HashMap<Integer, HashSet<Integer>> performNodeShapePropPruning(Integer classEncodedLabel, HashMap<Integer, HashSet<Integer>> propToObjectType, Double confidence, Integer support) {
         HashMap<Integer, HashSet<Integer>> propToObjectTypesLocal = new HashMap<>();
         propToObjectType.forEach((prop, propObjectTypes) -> {
             HashSet<Integer> objTypesSet = new HashSet<>();
@@ -198,47 +202,24 @@ public class ShapesExtractor {
         try (RepositoryConnection conn = db.getConnection()) {
             conn.add(currentModel); // You need to load the model in the repo to query
             
-            HashMap<Integer, String> header = new HashMap<>();
-            header.put(1, "COUNT_NS");
-            header.put(2, "COUNT_NSP");
-            header.put(3, "COUNT_CC");
-            header.put(4, "COUNT_LC");
             //COUNT STATS
-            for (int i = 1; i <= 4; i++) {
+            for (int i = 1; i <= 5; i++) {
                 String type = "count";
                 TupleQuery query = conn.prepareTupleQuery(FilesUtil.readShaclStatsQuery("query" + i, type));
                 Value queryOutput = executeQuery(query, type);
                 if (queryOutput.isLiteral()) {
                     Literal literalCount = (Literal) queryOutput;
-                    shapesStats.put(header.get(i), literalCount.stringValue());
+                    shapesStats.put(ExperimentsUtil.getCsvHeader().get(i), literalCount.stringValue());
                 }
             }
-            
-            HashMap<Integer, String> avgHeader = new HashMap<>();
-            avgHeader.put(1, "AVG_NSP");
-            avgHeader.put(2, "AVG_CC");
-            avgHeader.put(3, "AVG_LC");
-            
-            
-            HashMap<Integer, String> minHeader = new HashMap<>();
-            minHeader.put(1, "MIN_NSP");
-            minHeader.put(2, "MIN_CC");
-            minHeader.put(3, "MIN_LC");
-            
-            
-            HashMap<Integer, String> maxHeader = new HashMap<>();
-            maxHeader.put(1, "MAX_NSP");
-            maxHeader.put(2, "MAX_CC");
-            maxHeader.put(3, "MAX_LC");
-            
             //AVERAGE STATS
-            for (int i = 1; i <= 3; i++) {
+            for (int i = 1; i <= 4; i++) {
                 String type = "avg";
                 TupleQuery query = conn.prepareTupleQuery(FilesUtil.readShaclStatsQuery("query" + i, type));
                 Value queryOutput = executeQuery(query, type);
                 if (queryOutput.isLiteral()) {
                     Literal literalCount = (Literal) queryOutput;
-                    shapesStats.put(avgHeader.get(i), literalCount.stringValue());
+                    shapesStats.put(ExperimentsUtil.getAverageHeader().get(i), literalCount.stringValue());
                 }
                 //MAX STATS
                 type = "max";
@@ -246,7 +227,7 @@ public class ShapesExtractor {
                 queryOutput = executeQuery(query, type);
                 if (queryOutput.isLiteral()) {
                     Literal literalCount = (Literal) queryOutput;
-                    shapesStats.put(maxHeader.get(i), literalCount.stringValue());
+                    shapesStats.put(ExperimentsUtil.getMaxHeader().get(i), literalCount.stringValue());
                 }
                 //MIN STATS
                 type = "min";
@@ -254,7 +235,7 @@ public class ShapesExtractor {
                 queryOutput = executeQuery(query, type);
                 if (queryOutput.isLiteral()) {
                     Literal literalCount = (Literal) queryOutput;
-                    shapesStats.put(minHeader.get(i), literalCount.stringValue());
+                    shapesStats.put(ExperimentsUtil.getMinHeader().get(i), literalCount.stringValue());
                 }
             }
         } finally {

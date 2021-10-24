@@ -1,4 +1,4 @@
-## QSE : Quality Shapes Extraction Paper
+## QSE: Quality Shapes Extraction
 
 ### Setup
 
