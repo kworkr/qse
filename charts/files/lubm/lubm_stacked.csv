@@ -1,0 +1,9 @@
+Confidence,Support,COUNT,TYPE
+>25, ≥ 1,239,Non-Literal
+>25, ≥ 1,55,Literal
+>50, ≥ 1,216,Non-Literal
+>50, ≥ 1,54,Literal
+>75, ≥ 1,214,Non-Literal
+>75, ≥ 1,54,Literal
+>90, ≥ 1,214,Non-Literal
+>90, ≥ 1,52,Literal

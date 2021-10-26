@@ -207,20 +207,7 @@ public class Parser {
         System.out.println("STATS: \n\t" + "No. of Classes: " + classInstanceCount.size());
     }
     
-    private void measureMemoryUsage() {
-        SizeOf sizeOf = SizeOf.newInstance();
-        System.out.println("Size - Parser HashMap<String, Integer> classInstanceCount: " + sizeOf.deepSizeOf(classInstanceCount));
-        System.out.println("Size - Encoder object encoder: " + sizeOf.deepSizeOf(encoder.getTable()));
-        System.out.println("Size - Parser HashMap<Node, List<Node>> instanceToClass: " + sizeOf.deepSizeOf(instanceToClass));
-        System.out.println("Size - Parser HashMap<String, HashMap<String, HashSet<String>>> classToPropWithObjTypes: " + sizeOf.deepSizeOf(classToPropWithObjTypes));
-    }
-    
     public void run() {
         runParser();
-        //new StatsCollector().doTheJob();
-        //measureMemoryUsage();
-        //ExperimentsUtil.prepareCsvForGroupedStackedBarChart(ConfigManager.getProperty("output_file_path") + "/lubm.csv",ConfigManager.getProperty("output_file_path") + "/lubm_stacked.csv", false );
-        //ExperimentsUtil.prepareCsvForGroupedStackedBarChart(ConfigManager.getProperty("output_file_path") + "/yago.csv", ConfigManager.getProperty("output_file_path") + "/yago_stacked.csv", false);
-        //ExperimentsUtil.prepareCsvForGroupedStackedBarChart(ConfigManager.getProperty("output_file_path") + "/dbpedia.csv", ConfigManager.getProperty("output_file_path") + "/dbpedia_stacked.csv", false);
     }
 }

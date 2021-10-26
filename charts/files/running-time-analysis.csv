@@ -1,0 +1,7 @@
+﻿Approach,Datasets,Time
+QSE-File,LUBM,8
+QSE-Endpoint,LUBM,47
+QSE-File,DBpedia,3
+QSE-Endpoint,DBpedia,34
+QSE-File,YAGO-4,23
+QSE-Endpoint,YAGO-4,148
